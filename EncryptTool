@@ -1,0 +1,93 @@
+
+
+import java.security.KeyFactory;
+import java.security.PrivateKey;
+import java.security.Signature;
+import java.security.spec.PKCS8EncodedKeySpec;
+
+import javax.crypto.Cipher;
+
+import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.logging.LogFactory;
+
+
+
+/**
+ * 类EncryptTool.java的实现描述：加密认证工具库
+ * 
+ * @author weifei.lwf 2015年7月10日 下午1:53:22
+ */
+public class EncryptTool {
+
+    private static final String RSA     = "RSA";
+    private static final String CHARSET = "UTF-8";
+
+    /**
+     * 通过key的字符串的字节数组转化为java的PrivateKey实例
+     * 
+     * @param algorithm
+     * @param encodedKey key串的数组 可以通过String.getBytes()取得。
+     * @return PrivateKey实例
+     */
+    private static PrivateKey getPrivateKeyFromPKCS8(String algorithm, byte[] encodedKey) {
+        if (algorithm == null || algorithm.isEmpty()) {
+            return null;
+        }
+        try {
+            KeyFactory keyFactory = KeyFactory.getInstance(algorithm);
+            encodedKey = Base64.decodeBase64(encodedKey);
+            return keyFactory.generatePrivate(new PKCS8EncodedKeySpec(encodedKey));
+        } catch (Exception e) {
+            LogFactory.getLog(EncryptTool.class).error("getPrivateKeyFromPKCS8 failed,Caused by:", e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 根据给定数据和私钥进行签名 <br>
+     * 使用算法SHA1WithRSA<br>
+     * CHARSET = "UTF-8" <br>
+     * 
+     * @param content
+     * @param privateKey 是256位
+     * @return 已使用Base64再加密的签名串
+     * @throws RuntimeException
+     */
+    public static String sgin(String content, String privateKey) {
+        try {
+            PrivateKey priKey = getPrivateKeyFromPKCS8(RSA, privateKey.getBytes());
+
+            Signature signature = Signature.getInstance("SHA1WithRSA");
+            signature.initSign(priKey);
+            signature.update(content.getBytes(CHARSET));
+            byte[] signed = signature.sign();
+            return new String(Base64.encodeBase64(signed));
+        } catch (Exception e) {
+            LogFactory.getLog(EncryptTool.class).error("sign with rsa failed" + "RSAcontent = " + content
+                                                                          + "; charset =UTF-8 ,Caused by:", e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 用私钥加密
+     * 
+     * @param srcData
+     * @param key privateKey是256位
+     * @return 加密后的串
+     * @throws RuntimeException
+     */
+    public static String encryptByPrivateKey(String srcData, String key) {
+        try {
+            PrivateKey privateKey = getPrivateKeyFromPKCS8(RSA, key.getBytes());
+            // 对数据加密
+            Cipher cipher = Cipher.getInstance(RSA);
+            cipher.init(Cipher.ENCRYPT_MODE, privateKey);
+            byte[] rsData = cipher.doFinal(srcData.getBytes(CHARSET));
+            return new String(Base64.encodeBase64(rsData));
+        } catch (Exception e) {
+            LogFactory.getLog(EncryptTool.class).error("encryptByPrivateKey failed ,Caused by:", e);
+            throw new RuntimeException(e);
+        }
+    }
+}
